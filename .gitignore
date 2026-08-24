@@ -21,3 +21,6 @@ Thumbs.db
 
 notes/
 .notes/
+
+debug/
+.debug/
