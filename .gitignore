@@ -19,8 +19,14 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
+# Notes
 notes/
 .notes/
 
+# Logs
 debug/
 .debug/
+
+# Vector database
+chroma_db/
+.chroma_db/
