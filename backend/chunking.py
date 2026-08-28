@@ -4,9 +4,8 @@ from pathlib import Path
 from ingest import load_all_documents
 
 
-CHUNK_SIZE = 500
-CHUNK_OVERLAP = 50
-
+CHUNK_SIZE = 1000 #500
+CHUNK_OVERLAP = 100 #50
 
 def create_chunks(documents):
     """
