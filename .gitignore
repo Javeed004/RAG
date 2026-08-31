@@ -19,6 +19,10 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
+# Test Files
+data/
+.data/
+
 # Notes
 notes/
 .notes/

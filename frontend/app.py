@@ -1,14 +1,286 @@
-import streamlit as st
 import requests
+import streamlit as st
 
 
-st.title("AI Agent")
+# CONFIGURATION
 
-if st.button("Ping Backend"):
-    response = requests.get("http://127.0.0.1:8000/ping")
+API_URL = "http://127.0.0.1:8000"
 
-    if response.status_code == 200:
-        data = response.json()
-        st.success(data["status"])
-    else:
-        st.error("Backend request failed")
+
+# PAGE CONFIGURATION
+
+st.set_page_config(
+    page_title="RAG Chatbot",
+    page_icon="📚",
+    layout="centered",
+)
+
+# SIDEBAR
+
+with st.sidebar:
+
+    st.header("Document Management")
+
+    uploaded_file = st.file_uploader(
+        "Upload a document",
+        type=["pdf", "txt", "docx"],
+    )
+
+    if uploaded_file is not None:
+
+        if st.button("Add to Knowledge Base"):
+
+            try:
+
+                with st.spinner(    
+                    "Processing document..."
+                ):
+
+                    response = requests.post(
+                        f"{API_URL}/upload",
+                        files={
+                            "file": (
+                                uploaded_file.name,
+                                uploaded_file.getvalue(),
+                                uploaded_file.type,
+                            )
+                        },
+                        timeout=300,
+                    )
+
+                response.raise_for_status()
+
+                data = response.json()
+
+                st.success(
+                    data.get(
+                        "message",
+                        "Document added successfully."
+                    )
+                )
+
+            except requests.exceptions.Timeout:
+
+                st.error(
+                    "Document processing timed out."
+                )
+
+            except requests.exceptions.ConnectionError:
+
+                st.error(
+                    "Could not connect to the backend."
+                )
+
+            except requests.exceptions.HTTPError:
+
+                try:
+
+                    detail = response.json().get(
+                        "detail",
+                        "Upload failed."
+                    )
+
+                except Exception:
+
+                    detail = "Upload failed."
+
+                st.error(detail)
+
+            except Exception as error:
+
+                st.error(
+                    f"Upload failed: {error}"
+                )
+
+# TITLE
+
+st.title("📚 RAG Chatbot")
+st.caption("Ask questions about your uploaded documents.")
+
+
+# SESSION STATE
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+
+# DISPLAY CHAT HISTORY
+
+for message in st.session_state.messages:
+
+    with st.chat_message(message["role"]):
+
+        st.markdown(message["content"])
+
+        if (
+            message["role"] == "assistant"
+            and message.get("sources")
+        ):
+
+            with st.expander("Sources"):
+
+                for source in message["sources"]:
+
+                    st.caption(f"📄 {source}")
+
+
+# CHAT INPUT
+
+question = st.chat_input(
+    "Ask a question about your documents..."
+)
+
+
+# PROCESS QUESTION
+
+if question:
+
+    # Display user message
+
+    st.session_state.messages.append(
+        {
+            "role": "user",
+            "content": question,
+        }
+    )
+
+    with st.chat_message("user"):
+        st.markdown(question)
+
+    # Call FastAPI
+
+    with st.chat_message("assistant"):
+
+        with st.spinner("Thinking..."):
+
+            try:
+
+                response = requests.post(
+                    f"{API_URL}/chat",
+                    json={
+                        "question": question
+                    },
+                    timeout=120,
+                )
+
+                # Raise exception for 4xx/5xx
+                response.raise_for_status()
+
+                data = response.json()
+
+                answer = data.get(
+                    "answer",
+                    "I don't know."
+                )
+
+                sources = data.get(
+                    "sources",
+                    []
+                )
+
+                # Display answer
+
+                st.markdown(answer)
+
+                # Display sources
+
+                if sources:
+
+                    with st.expander("Sources"):
+
+                        for source in sources:
+
+                            st.caption(
+                                f"📄 {source}"
+                            )
+
+                else:
+
+                    st.caption(
+                        "No sources were returned."
+                    )
+
+                # Save assistant response
+
+                st.session_state.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": answer,
+                        "sources": sources,
+                    }
+                )
+
+            except requests.exceptions.Timeout:
+
+                error_message = (
+                    "The backend took too long to respond. "
+                    "Please try again."
+                )
+
+                st.error(error_message)
+
+                st.session_state.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": error_message,
+                        "sources": [],
+                    }
+                )
+
+            except requests.exceptions.ConnectionError:
+
+                error_message = (
+                    "Could not connect to the RAG backend. "
+                    "Make sure FastAPI is running."
+                )
+
+                st.error(error_message)
+
+                st.session_state.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": error_message,
+                        "sources": [],
+                    }
+                )
+
+            except requests.exceptions.HTTPError as error:
+
+                try:
+
+                    detail = response.json().get(
+                        "detail",
+                        "Backend returned an error."
+                    )
+
+                except Exception:
+
+                    detail = "Backend returned an error."
+
+                error_message = f"Backend error: {detail}"
+
+                st.error(error_message)
+
+                st.session_state.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": error_message,
+                        "sources": [],
+                    }
+                )
+
+            except Exception as error:
+
+                error_message = (
+                    f"Unexpected error: {error}"
+                )
+
+                st.error(error_message)
+
+                st.session_state.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": error_message,
+                        "sources": [],
+                    }
+                )
