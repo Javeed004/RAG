@@ -15,10 +15,9 @@ st.set_page_config(
     layout="centered",
 )
 
-# SIDEBAR
+# SIDEBAR: DOCUMENT MANAGEMENT
 
 with st.sidebar:
-
     st.header("Document Management")
 
     uploaded_file = st.file_uploader(
@@ -27,15 +26,9 @@ with st.sidebar:
     )
 
     if uploaded_file is not None:
-
         if st.button("Add to Knowledge Base"):
-
             try:
-
-                with st.spinner(    
-                    "Processing document..."
-                ):
-
+                with st.spinner("Processing document..."):
                     response = requests.post(
                         f"{API_URL}/upload",
                         files={
@@ -53,44 +46,26 @@ with st.sidebar:
                 data = response.json()
 
                 st.success(
-                    data.get(
-                        "message",
-                        "Document added successfully."
-                    )
+                    data.get("message", "Document added successfully.")
                 )
 
             except requests.exceptions.Timeout:
-
-                st.error(
-                    "Document processing timed out."
-                )
+                st.error("Document processing timed out.")
 
             except requests.exceptions.ConnectionError:
-
-                st.error(
-                    "Could not connect to the backend."
-                )
+                st.error("Could not connect to the backend.")
 
             except requests.exceptions.HTTPError:
-
                 try:
-
-                    detail = response.json().get(
-                        "detail",
-                        "Upload failed."
-                    )
-
+                    detail = response.json().get("detail", "Upload failed.")
                 except Exception:
-
                     detail = "Upload failed."
 
                 st.error(detail)
 
             except Exception as error:
+                st.error(f"Upload failed: {error}")
 
-                st.error(
-                    f"Upload failed: {error}"
-                )
 
 # TITLE
 
@@ -107,35 +82,34 @@ if "messages" not in st.session_state:
 # DISPLAY CHAT HISTORY
 
 for message in st.session_state.messages:
-
     with st.chat_message(message["role"]):
-
         st.markdown(message["content"])
 
-        if (
-            message["role"] == "assistant"
-            and message.get("sources")
-        ):
-
+        if message["role"] == "assistant" and message.get("sources"):
             with st.expander("Sources"):
-
                 for source in message["sources"]:
-
                     st.caption(f"📄 {source}")
 
 
 # CHAT INPUT
 
-question = st.chat_input(
-    "Ask a question about your documents..."
-)
+question = st.chat_input("Ask a question about your documents...")
 
 
 # PROCESS QUESTION
 
 if question:
+    # BUILD HISTORY IN BACKEND-COMPATIBLE SHAPE
 
-    # Display user message
+    # Backend expects: list[{"role": str, "content": str}]
+    # Our session messages already have this shape plus optional "sources".
+
+    history = [
+        {"role": m["role"], "content": m["content"]}
+        for m in st.session_state.messages[-6:]
+    ]
+
+    # DISPLAY USER MESSAGE
 
     st.session_state.messages.append(
         {
@@ -147,60 +121,43 @@ if question:
     with st.chat_message("user"):
         st.markdown(question)
 
-    # Call FastAPI
+    # CALL FASTAPI /chat ENDPOINT
 
     with st.chat_message("assistant"):
-
         with st.spinner("Thinking..."):
-
             try:
-
                 response = requests.post(
                     f"{API_URL}/chat",
                     json={
-                        "question": question
+                        "question": question,
+                        "history": history,
                     },
                     timeout=120,
                 )
 
-                # Raise exception for 4xx/5xx
                 response.raise_for_status()
 
                 data = response.json()
 
-                answer = data.get(
-                    "answer",
-                    "I don't know."
-                )
+                # Backend ChatResponse:
+                # { "answer": str, "sources": list[str] }
+                answer = data.get("answer", "I don't know.")
+                sources = data.get("sources", [])
 
-                sources = data.get(
-                    "sources",
-                    []
-                )
-
-                # Display answer
+                # DISPLAY ANSWER
 
                 st.markdown(answer)
 
-                # Display sources
+                # DISPLAY SOURCES
 
                 if sources:
-
                     with st.expander("Sources"):
-
                         for source in sources:
-
-                            st.caption(
-                                f"📄 {source}"
-                            )
-
+                            st.caption(f"📄 {source}")
                 else:
+                    st.caption("No sources were returned.")
 
-                    st.caption(
-                        "No sources were returned."
-                    )
-
-                # Save assistant response
+                # SAVE SUCCESSFUL RESPONSE
 
                 st.session_state.messages.append(
                     {
@@ -211,76 +168,27 @@ if question:
                 )
 
             except requests.exceptions.Timeout:
-
-                error_message = (
+                st.error(
                     "The backend took too long to respond. "
                     "Please try again."
                 )
 
-                st.error(error_message)
-
-                st.session_state.messages.append(
-                    {
-                        "role": "assistant",
-                        "content": error_message,
-                        "sources": [],
-                    }
-                )
-
             except requests.exceptions.ConnectionError:
-
-                error_message = (
+                st.error(
                     "Could not connect to the RAG backend. "
                     "Make sure FastAPI is running."
                 )
 
-                st.error(error_message)
-
-                st.session_state.messages.append(
-                    {
-                        "role": "assistant",
-                        "content": error_message,
-                        "sources": [],
-                    }
-                )
-
-            except requests.exceptions.HTTPError as error:
-
+            except requests.exceptions.HTTPError:
                 try:
-
                     detail = response.json().get(
                         "detail",
-                        "Backend returned an error."
+                        "Backend returned an error.",
                     )
-
                 except Exception:
-
                     detail = "Backend returned an error."
 
-                error_message = f"Backend error: {detail}"
-
-                st.error(error_message)
-
-                st.session_state.messages.append(
-                    {
-                        "role": "assistant",
-                        "content": error_message,
-                        "sources": [],
-                    }
-                )
+                st.error(f"Backend error: {detail}")
 
             except Exception as error:
-
-                error_message = (
-                    f"Unexpected error: {error}"
-                )
-
-                st.error(error_message)
-
-                st.session_state.messages.append(
-                    {
-                        "role": "assistant",
-                        "content": error_message,
-                        "sources": [],
-                    }
-                )
+                st.error(f"Unexpected error: {error}")
