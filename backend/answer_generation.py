@@ -1,5 +1,7 @@
+import os
 from pathlib import Path
-from langchain_ollama import OllamaLLM
+from llm_factory import get_llm
+from llm_factory import get_llm_config
 from build_vectorstore import (
     create_chroma_client,
     COLLECTION_NAME,
@@ -9,7 +11,6 @@ from build_vectorstore import (
 
 # CONFIGURATION
 
-MODEL_NAME = "llama3.2:3b"
 TOP_K = 3
 
 DEBUG_DIR = Path(__file__).resolve().parent.parent / "debug"
@@ -18,10 +19,7 @@ DEBUG_FILE = DEBUG_DIR / "rag_debug.txt"
 
 # LLM (used only when running this file directly)
 
-llm = OllamaLLM(
-    model=MODEL_NAME,
-    temperature=0,
-)
+llm = None
 
 
 # RAG PROMPT
@@ -190,6 +188,8 @@ def save_debug_result(
     documents = results["documents"][0]
     metadatas = results["metadatas"][0]
     distances = results.get("distances", [[]])[0]
+    provider, model_name = get_llm_config()
+
 
     with open(DEBUG_FILE, "a", encoding="utf-8") as file:
         file.write("\n")
@@ -197,7 +197,8 @@ def save_debug_result(
         file.write("CONVERSATIONAL RAG DEBUG RESULT\n")
         file.write("=" * 100 + "\n\n")
 
-        file.write(f"Model: {MODEL_NAME}\n")
+        file.write(f"LLM Provider: {provider}\n")
+        file.write(f"LLM Model: {model_name}\n")
         file.write(f"Top K: {TOP_K}\n\n")
 
         file.write("=" * 100 + "\n")
@@ -288,11 +289,7 @@ def answer(question, collection, history=None, llm=None):
 
     # Use global llm only if none is provided (for standalone script usage)
     if llm is None:
-        llm = globals().get("llm")
-        if llm is None:
-            raise RuntimeError(
-                "No LLM instance provided and no global 'llm' available."
-            )
+        llm = get_llm()
 
     # STEP 1: REWRITE QUESTION
 
@@ -406,8 +403,26 @@ if __name__ == "__main__":
     print("=" * 80)
     print("TASK 8 / TASK 11 - CONVERSATIONAL RAG")
     print("=" * 80)
+    
+    provider = os.getenv(
+        "LLM_PROVIDER",
+        "ollama",
+    )
 
-    print(f"\nLLM: {MODEL_NAME}")
+    if provider.lower() == "ollama":
+        model_name = os.getenv(
+            "OLLAMA_MODEL",
+            "llama3.2:3b",
+        )
+    else:
+        model_name = os.getenv(
+            "OPENAI_MODEL",
+            "gpt-4.1-mini",
+        )
+
+    print(f"\nLLM Provider: {provider}")
+    print(f"LLM Model: {model_name}")
+
     print(f"Top K: {TOP_K}")
 
     print("\nLoading existing vector database...")

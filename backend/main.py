@@ -9,6 +9,7 @@ from answer_generation import answer, load_vectorstore
 from ingest import load_document
 from chunking import create_chunks
 from embeddings import embed_texts
+from llm_factory import get_llm
 
 
 # CONFIGURATION
@@ -20,6 +21,8 @@ UPLOAD_DEBUG_FILE = DEBUG_DIR / "upload_debug.txt"
 
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
+llm = None
+collection = None
 
 # FASTAPI APPLICATION
 
@@ -62,27 +65,46 @@ collection = None
 
 @app.on_event("startup")
 def startup_event():
+
     global collection
+    global llm
 
     print("\n" + "=" * 60)
     print("STARTING RAG API")
     print("=" * 60)
 
     try:
+
         print("\nLoading ChromaDB...")
 
         collection = load_vectorstore()
-        print("ChromaDB loaded successfully.")
-        print(f"Chunks available: {collection.count()}")
+
+        print(
+            f"ChromaDB loaded successfully."
+        )
+
+        print(
+            f"Chunks available: {collection.count()}"
+        )
+
+        print("\nLoading LLM...")
+
+        llm = get_llm()
+
+        print("LLM loaded successfully.")
 
         print("=" * 60)
         print("RAG API READY")
         print("=" * 60)
 
     except Exception as error:
-        print(f"\nFailed to load ChromaDB: {error}")
-        collection = None
 
+        print(
+            f"\nFailed to initialize RAG API: {error}"
+        )
+
+        collection = None
+        llm = None
 
 # ROOT
 
@@ -137,7 +159,7 @@ def chat(request: ChatRequest):
         print(f"History messages: {len(history)}")
 
         # Run conversational RAG
-        result = answer(question, collection, history)
+        result = answer(question, collection, history, llm=llm)
 
         # Format sources for API response
         formatted_sources = []
