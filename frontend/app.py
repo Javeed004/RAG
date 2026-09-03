@@ -15,6 +15,82 @@ st.set_page_config(
     layout="centered",
 )
 
+def display_sources(sources):
+    """
+    Display retrieved RAG chunks with metadata
+    and similarity scores.
+    """
+
+    if not sources:
+        st.caption("No sources were returned.")
+        return
+
+    with st.expander("🔍 View sources"):
+
+        for index, source in enumerate(
+            sources,
+            start=1,
+        ):
+
+            source_name = source.get(
+                "source",
+                "Unknown",
+            )
+
+            page = source.get(
+                "page",
+                "N/A",
+            )
+
+            similarity = source.get(
+                "similarity",
+            )
+
+            distance = source.get(
+                "distance",
+            )
+
+            chunk = source.get(
+                "chunk",
+                "",
+            )
+
+            st.markdown(
+                f"### 📄 Source {index}"
+            )
+
+            st.caption(
+                f"**Document:** {source_name}"
+            )
+
+            st.caption(
+                f"**Page:** {page}"
+            )
+
+            if similarity is not None:
+
+                st.caption(
+                    f"**Similarity:** {similarity:.4f}"
+                )
+
+            if distance is not None:
+
+                st.caption(
+                    f"**Distance:** {distance:.4f}"
+                )
+
+            st.markdown(
+                "**Retrieved chunk:**"
+            )
+
+            st.code(
+                chunk,
+                language=None,
+            )
+
+            if index < len(sources):
+                st.divider()
+
 # SIDEBAR: DOCUMENT MANAGEMENT
 
 with st.sidebar:
@@ -82,13 +158,20 @@ if "messages" not in st.session_state:
 # DISPLAY CHAT HISTORY
 
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
 
-        if message["role"] == "assistant" and message.get("sources"):
-            with st.expander("Sources"):
-                for source in message["sources"]:
-                    st.caption(f"📄 {source}")
+    with st.chat_message(message["role"]):
+
+        st.markdown(
+            message["content"]
+        )
+
+        if (
+            message["role"] == "assistant"
+            and message.get("sources")
+        ):
+            display_sources(
+                message["sources"]
+            )
 
 
 # CHAT INPUT
@@ -150,12 +233,7 @@ if question:
 
                 # DISPLAY SOURCES
 
-                if sources:
-                    with st.expander("Sources"):
-                        for source in sources:
-                            st.caption(f"📄 {source}")
-                else:
-                    st.caption("No sources were returned.")
+                display_sources(sources)
 
                 # SAVE SUCCESSFUL RESPONSE
 

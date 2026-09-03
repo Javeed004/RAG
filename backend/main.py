@@ -51,9 +51,17 @@ class ChatRequest(BaseModel):
     )
 
 
+class SourceInfo(BaseModel):
+    source: str
+    page: int | str
+    chunk: str
+    distance: float | None = None
+    similarity: float | None = None
+
+
 class ChatResponse(BaseModel):
     answer: str
-    sources: list[str]
+    sources: list[SourceInfo]
 
 
 # VECTOR DATABASE
@@ -162,11 +170,33 @@ def chat(request: ChatRequest):
         result = answer(question, collection, history, llm=llm)
 
         # Format sources for API response
+        # Keep complete retrieval information
         formatted_sources = []
+
         for source in result.get("sources", []):
-            source_name = source.get("source", "Unknown")
-            page = source.get("page", "N/A")
-            formatted_sources.append(f"{source_name} - Page {page}")
+
+            formatted_sources.append(
+                {
+                    "source": source.get(
+                        "source",
+                        "Unknown",
+                    ),
+                    "page": source.get(
+                        "page",
+                        "N/A",
+                    ),
+                    "chunk": source.get(
+                        "chunk",
+                        "",
+                    ),
+                    "distance": source.get(
+                        "distance",
+                    ),
+                    "similarity": source.get(
+                        "similarity",
+                    ),
+                }
+            )
 
         print("\nAnswer generated successfully.")
 

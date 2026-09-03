@@ -95,24 +95,61 @@ Content:
 # EXTRACT SOURCES
 
 def extract_sources(results):
+    """
+    Extract complete retrieval information for transparency.
+
+    Returns:
+        List of dictionaries containing:
+        - source
+        - page
+        - chunk
+        - distance
+        - similarity
+    """
+
+    documents = results["documents"][0]
     metadatas = results["metadatas"][0]
+    distances = results.get("distances", [[]])[0]
 
     sources = []
 
-    for metadata in metadatas:
-        source = metadata.get("source", "Unknown")
-        page = metadata.get("page", "N/A")
+    for index, (document, metadata) in enumerate(
+        zip(documents, metadatas)
+    ):
+        distance = (
+            distances[index]
+            if index < len(distances)
+            else None
+        )
 
-        source_info = {
-            "source": source,
-            "page": page,
-        }
+        # ChromaDB distance:
+        # lower distance = more similar
+        #
+        # Convert it into a similarity-style score
+        # where higher = more relevant.
+        similarity = (
+            1 - distance
+            if distance is not None
+            else None
+        )
 
-        if source_info not in sources:
-            sources.append(source_info)
+        sources.append(
+            {
+                "source": metadata.get(
+                    "source",
+                    "Unknown",
+                ),
+                "page": metadata.get(
+                    "page",
+                    "N/A",
+                ),
+                "chunk": document,
+                "distance": distance,
+                "similarity": similarity,
+            }
+        )
 
     return sources
-
 
 # REWRITE FOLLOW-UP QUESTION
 
