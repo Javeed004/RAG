@@ -35,3 +35,5 @@ debug/
 # Vector database
 chroma_db/
 .chroma_db/
+faiss_db/
+.faiss_db/

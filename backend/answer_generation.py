@@ -2,11 +2,8 @@ import os
 from pathlib import Path
 from llm_factory import get_llm
 from llm_factory import get_llm_config
-from build_vectorstore import (
-    create_chroma_client,
-    COLLECTION_NAME,
-    search,
-)
+from embeddings import embed_texts
+from vector_store_factory import get_vector_store
 
 
 # CONFIGURATION
@@ -49,20 +46,53 @@ Question:
 Answer:
 """
 
+# Search function
 
-# ============================================================
-# LOAD CHROMADB
-# ============================================================
+def search(vector_store, query, k=3):
+    """
+    Perform semantic search using the configured vector store.
+    """
+
+    if not query.strip():
+        raise ValueError(
+            "Query cannot be empty."
+        )
+
+    query_embedding = embed_texts(
+        [query]
+    )[0]
+
+    results = vector_store.search(
+        query_embedding=query_embedding,
+        k=k,
+    )
+
+    return results
+
+# LOAD VECTOR STORE
 
 def load_vectorstore():
-    client = create_chroma_client()
+    """
+    Load the vector store configured through VECTOR_DB.
 
-    collection = client.get_collection(name=COLLECTION_NAME)
+    Supported:
+        VECTOR_DB=chroma
+        VECTOR_DB=faiss
+    """
 
-    print(f"Loaded ChromaDB collection: {COLLECTION_NAME}")
-    print(f"Collection contains {collection.count()} chunks.")
+    vector_store = get_vector_store()
 
-    return collection
+    print(
+        f"Loaded vector store: "
+        f"{os.getenv('VECTOR_DB', 'chroma').lower()}"
+    )
+
+    print(
+        f"Vector store contains "
+        f"{vector_store.count()} chunks."
+    )
+
+    return vector_store
 
 
 # FORMAT RETRIEVED CONTEXT
@@ -310,7 +340,7 @@ def save_debug_result(
 
 # ANSWER FUNCTION
 
-def answer(question, collection, history=None, llm=None):
+def answer(question, vector_store, history=None, llm=None):
     """
     Complete conversational RAG pipeline.
     1. Rewrite follow-up question.
@@ -350,7 +380,7 @@ def answer(question, collection, history=None, llm=None):
 
     # STEP 2: RETRIEVE
 
-    results = search(collection=collection, query=standalone_question, k=TOP_K)
+    results = search(vector_store=vector_store, query=standalone_question, k=TOP_K)
 
     # STEP 3: FORMAT CONTEXT
 
@@ -441,21 +471,7 @@ if __name__ == "__main__":
     print("TASK 8 / TASK 11 - CONVERSATIONAL RAG")
     print("=" * 80)
     
-    provider = os.getenv(
-        "LLM_PROVIDER",
-        "ollama",
-    )
-
-    if provider.lower() == "ollama":
-        model_name = os.getenv(
-            "OLLAMA_MODEL",
-            "llama3.2:3b",
-        )
-    else:
-        model_name = os.getenv(
-            "OPENAI_MODEL",
-            "gpt-4.1-mini",
-        )
+    provider, model_name = get_llm_config()
 
     print(f"\nLLM Provider: {provider}")
     print(f"LLM Model: {model_name}")
@@ -464,7 +480,7 @@ if __name__ == "__main__":
 
     print("\nLoading existing vector database...")
 
-    collection = load_vectorstore()
+    vector_store = load_vectorstore()
 
     print("\nVector database loaded successfully.")
     print("\nStarting RAG tests...")
@@ -473,7 +489,7 @@ if __name__ == "__main__":
 
     for question in TEST_QUESTIONS:
         try:
-            result = answer(question, collection)
+            result = answer(question, vector_store)
             print_result(question, result)
         except Exception as error:
             print("\nERROR while answering question:")
@@ -490,7 +506,7 @@ if __name__ == "__main__":
     print("=" * 80)
 
     try:
-        result = answer(out_of_scope_question, collection)
+        result = answer(out_of_scope_question, vector_store)
         print_result(out_of_scope_question, result)
     except Exception as error:
         print(f"\nError: {error}")

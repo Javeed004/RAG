@@ -22,7 +22,7 @@ UPLOAD_DEBUG_FILE = DEBUG_DIR / "upload_debug.txt"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 llm = None
-collection = None
+vector_store = None
 
 # FASTAPI APPLICATION
 
@@ -66,7 +66,7 @@ class ChatResponse(BaseModel):
 
 # VECTOR DATABASE
 
-collection = None
+vector_store = None
 
 
 # STARTUP
@@ -74,7 +74,7 @@ collection = None
 @app.on_event("startup")
 def startup_event():
 
-    global collection
+    global vector_store
     global llm
 
     print("\n" + "=" * 60)
@@ -83,17 +83,30 @@ def startup_event():
 
     try:
 
-        print("\nLoading ChromaDB...")
+        print("\nLoading VectorDB...")
 
-        collection = load_vectorstore()
+        vector_store = load_vectorstore()
+
+        chunk_count = vector_store.count()
 
         print(
-            f"ChromaDB loaded successfully."
+            f"VectorDB loaded successfully."
         )
 
         print(
-            f"Chunks available: {collection.count()}"
+            f"Chunks available: {chunk_count}"
         )
+
+        if chunk_count == 0:
+            print(
+                "\n" + "!" * 60 + "\n"
+                "WARNING: Vector store is EMPTY (0 chunks).\n"
+                "The chatbot will not be able to answer questions "
+                "until documents are ingested.\n"
+                "Run 'python build_vectorstore.py' to index everything "
+                "in the data/ folder, or upload a document via /upload.\n"
+                + "!" * 60
+            )
 
         print("\nLoading LLM...")
 
@@ -111,8 +124,27 @@ def startup_event():
             f"\nFailed to initialize RAG API: {error}"
         )
 
-        collection = None
+        vector_store = None
         llm = None
+
+
+# STATUS ENDPOINT
+
+@app.get("/status")
+def status():
+    """
+    Report whether the API is actually ready to answer questions,
+    not just whether the server process is up.
+    """
+
+    chunk_count = vector_store.count() if vector_store is not None else 0
+
+    return {
+        "vector_store_available": vector_store is not None,
+        "llm_available": llm is not None,
+        "chunk_count": chunk_count,
+        "ready": vector_store is not None and llm is not None and chunk_count > 0,
+    }
 
 # ROOT
 
@@ -132,9 +164,9 @@ def ping():
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    global collection
+    global vector_store
 
-    if collection is None:
+    if vector_store is None:
         raise HTTPException(
             status_code=503,
             detail="Vector database is not available.",
@@ -167,7 +199,7 @@ def chat(request: ChatRequest):
         print(f"History messages: {len(history)}")
 
         # Run conversational RAG
-        result = answer(question, collection, history, llm=llm)
+        result = answer(question, vector_store, history, llm=llm)
 
         # Format sources for API response
         # Keep complete retrieval information
@@ -305,9 +337,9 @@ def save_upload_debug(
 
 @app.post("/upload")
 async def upload_document(file: UploadFile = File(...)):
-    global collection
+    global vector_store
 
-    if collection is None:
+    if vector_store is None:
         raise HTTPException(
             status_code=503,
             detail="Vector database is not available.",
@@ -353,14 +385,7 @@ async def upload_document(file: UploadFile = File(...)):
 
     try:
         # Remove previous chunks if the same file was uploaded before
-        existing = collection.get(where={"source": filename})
-
-        if existing and existing.get("ids"):
-            removed_chunk_count = len(existing["ids"])
-            collection.delete(ids=existing["ids"])
-            print(
-                f"Removed {removed_chunk_count} old chunks for {filename}"
-            )
+        vector_store.delete_by_source(filename)
 
         # Load document
         documents = load_document(file_path)
@@ -420,7 +445,7 @@ async def upload_document(file: UploadFile = File(...)):
         ]
 
         # Add to ChromaDB
-        collection.add(
+        vector_store.add(
             ids=ids,
             documents=texts,
             embeddings=embeddings,
@@ -428,7 +453,8 @@ async def upload_document(file: UploadFile = File(...)):
         )
 
         print(f"Indexed {len(chunks)} chunks from {filename}.")
-        print(f"Collection now has {collection.count()} chunks.")
+        print(f"Collection now has {vector_store
+              .count()} chunks.")
 
         save_upload_debug(
             filename=filename,

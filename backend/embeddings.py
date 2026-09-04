@@ -22,8 +22,10 @@ def embed_text(text):
     if not text.strip():
         raise ValueError("text cannot be empty")
 
-    embedding = model.encode(text)
-
+    embedding = model.encode(
+        text,
+        normalize_embeddings=True
+    )
     return embedding.tolist()
 
 
