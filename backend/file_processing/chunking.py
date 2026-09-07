@@ -1,7 +1,7 @@
 import random
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pathlib import Path
-from ingest import load_all_documents
+from file_processing.ingest import load_all_documents
 
 
 CHUNK_SIZE = 1000 #500
@@ -128,7 +128,8 @@ def analyze_chunk_sizes(chunks):
             
 def save_chunks_for_review(chunks):
     
-    DEBUG_DIR = Path("D:/Fobes Internship/RAG-Project/debug/")
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+    DEBUG_DIR = PROJECT_ROOT / "debug"
     DEBUG_DIR.mkdir(parents=True, exist_ok=True)
 
     output_file = DEBUG_DIR / "chunks.txt"

@@ -1,9 +1,9 @@
 import os
 from pathlib import Path
-from llm_factory import get_llm
-from llm_factory import get_llm_config
-from embeddings import embed_texts
-from vector_store_factory import get_vector_store
+from llm.llm_factory import get_llm
+from llm.llm_factory import get_llm_config
+from file_processing.embeddings import embed_texts
+from vector_db.vector_store_factory import get_vector_store
 
 
 # CONFIGURATION
@@ -19,32 +19,36 @@ DEBUG_FILE = DEBUG_DIR / "rag_debug.txt"
 llm = None
 
 
-# RAG PROMPT
+# PROMPT LOADING
 
-RAG_PROMPT = """
-You are a question-answering assistant.
-Answer the user's question using ONLY the provided context.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-Rules:
-- Use the context as your only source of information.
-- If the context contains information that can reasonably answer
-  the question, answer using that information.
-- Do not require the exact wording of the question to appear
-  in the context.
-- You may combine information from multiple context chunks.
-- Do not invent facts that are not supported by the context.
-- If the context genuinely does not contain enough information
-  to answer the question, respond exactly:
-  I don't know.
+PROMPTS_DIR = PROJECT_ROOT / "prompts"
 
-Context:
-{context}
+RAG_PROMPT_FILE = PROMPTS_DIR / "rag_prompt.md"
+QUERY_REWRITER_PROMPT_FILE = (
+    PROMPTS_DIR / "query_rewriter_prompt.md"
+)
 
-Question:
-{question}
 
-Answer:
-"""
+def load_prompt(prompt_file):
+    if not prompt_file.exists():
+        raise FileNotFoundError(
+            f"Prompt file not found: {prompt_file}"
+        )
+
+    return prompt_file.read_text(
+        encoding="utf-8"
+    )
+
+
+RAG_PROMPT = load_prompt(
+    RAG_PROMPT_FILE
+)
+
+QUERY_REWRITER_PROMPT = load_prompt(
+    QUERY_REWRITER_PROMPT_FILE
+)
 
 # Search function
 
@@ -201,28 +205,14 @@ def rewrite_question(question, history, llm):
         if content:
             history_text += f"{role}: {content}\n"
 
-    prompt = f"""
-You are a question rewriting assistant for a RAG system.
-Your task is to rewrite the user's latest question into a
-standalone question that can be understood without conversation history.
+    prompt_template = load_prompt(
+        QUERY_REWRITER_PROMPT_FILE
+    )
 
-Use the conversation history ONLY when the latest question depends
-on previous messages.
-
-If the latest question is already standalone, return it unchanged.
-
-Do NOT answer the question.
-Do NOT add information that is not present in the conversation.
-Return ONLY the rewritten question.
-
-Conversation history:
-{history_text}
-
-Latest question:
-{question}
-
-Standalone question:
-"""
+    prompt = prompt_template.format(
+        history=history_text,
+        question=question,
+    )
 
     response = llm.invoke(prompt)
 
@@ -388,7 +378,11 @@ def answer(question, vector_store, history=None, llm=None):
 
     # STEP 4: BUILD PROMPT
 
-    prompt = RAG_PROMPT.format(
+    rag_prompt_template = load_prompt(
+        RAG_PROMPT_FILE
+    )
+
+    prompt = rag_prompt_template.format(
         context=context,
         question=standalone_question,
     )

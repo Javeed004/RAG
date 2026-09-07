@@ -8,7 +8,7 @@ from langchain_community.document_loaders import (
 
 
 # Project directories
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 DEBUG_DIR = PROJECT_ROOT / "debug"
 

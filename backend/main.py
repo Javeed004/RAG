@@ -5,11 +5,12 @@ import uuid
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
 
-from answer_generation import answer, load_vectorstore
-from ingest import load_document
-from chunking import create_chunks
-from embeddings import embed_texts
-from llm_factory import get_llm
+from config import BACKEND_URL, BACKEND_HOST, BACKEND_PORT
+from llm.answer_generation import answer, load_vectorstore
+from file_processing.ingest import load_document
+from file_processing.chunking import create_chunks
+from file_processing.embeddings import embed_texts
+from llm.llm_factory import get_llm
 
 
 # CONFIGURATION
@@ -79,6 +80,7 @@ def startup_event():
 
     print("\n" + "=" * 60)
     print("STARTING RAG API")
+    print(f"Backend URL: {BACKEND_URL}")
     print("=" * 60)
 
     try:
@@ -491,3 +493,8 @@ async def upload_document(file: UploadFile = File(...)):
             status_code=500,
             detail="File was saved but could not be indexed.",
         )
+        
+if __name__ == "__main__":
+    
+    import uvicorn
+    uvicorn.run("main:app", host=BACKEND_HOST, port=BACKEND_PORT, reload=True)

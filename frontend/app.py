@@ -1,10 +1,19 @@
+import json
+from pathlib import Path
+
 import requests
 import streamlit as st
 
 
 # CONFIGURATION
 
-API_URL = "http://127.0.0.1:8000"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+CONFIG_FILE = PROJECT_ROOT / "config.json"
+
+with open(CONFIG_FILE, "r", encoding="utf-8") as file:
+    config = json.load(file)
+
+API_URL = config["backend"]["base_url"]
 
 
 # PAGE CONFIGURATION
@@ -14,7 +23,6 @@ st.set_page_config(
     page_icon="📚",
     layout="centered",
 )
-
 def display_sources(sources):
     """
     Display retrieved RAG chunks with metadata

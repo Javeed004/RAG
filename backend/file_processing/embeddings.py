@@ -7,7 +7,7 @@ MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 model = SentenceTransformer(MODEL_NAME)
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DEBUG_DIR = PROJECT_ROOT / "debug"
 
 

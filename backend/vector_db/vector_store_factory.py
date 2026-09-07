@@ -3,11 +3,11 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from chroma_store import ChromaVectorStore
-from faiss_store import FAISSVectorStore
+from .chroma_store import ChromaVectorStore
+from .faiss_store import FAISSVectorStore
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 ENV_FILE = PROJECT_ROOT / ".env"
 load_dotenv(ENV_FILE)

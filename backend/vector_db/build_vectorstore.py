@@ -1,10 +1,10 @@
 from pathlib import Path
 from time import perf_counter
 
-from ingest import load_all_documents
-from chunking import create_chunks
-from embeddings import embed_texts
-from vector_store_factory import get_vector_store
+from file_processing.ingest import load_all_documents
+from file_processing.chunking import create_chunks
+from file_processing.embeddings import embed_texts
+from .vector_store_factory import get_vector_store
 
 
 def build_vectorstore():
