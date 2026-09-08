@@ -231,7 +231,21 @@ def chat(request: ChatRequest):
                     ),
                 }
             )
+        print("\n" + "=" * 80)
+        print("RETRIEVED CHUNKS")
+        print("=" * 80)
 
+        for index, source in enumerate(formatted_sources, start=1):
+            print(f"\n--- CHUNK {index} ---")
+            print(f"Source: {source['source']}")
+            print(f"Page: {source['page']}")
+            print(f"Distance: {source['distance']}")
+            print(f"Similarity: {source['similarity']}")
+            print("\nContent:")
+            print(source["chunk"])
+            print("-" * 80)
+
+        print("=" * 80)
         print("\nAnswer generated successfully.")
 
         return ChatResponse(
