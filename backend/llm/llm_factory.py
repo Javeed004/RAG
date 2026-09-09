@@ -93,6 +93,8 @@ def get_llm(provider_name=None):
                 model=model_name,
                 temperature=0,
                 api_key=api_key,
+                max_tokens=800,
+                reasoning_effort="none",
             )
 
         except Exception as error:
