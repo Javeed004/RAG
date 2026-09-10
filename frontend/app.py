@@ -99,56 +99,99 @@ def display_sources(sources):
             if index < len(sources):
                 st.divider()
 
+
+def upload_single_file(uploaded_file):
+    """
+    Upload one file to the FastAPI /upload endpoint.
+    Returns (success: bool, message: str).
+    """
+    try:
+        response = requests.post(
+            f"{API_URL}/upload",
+            files={
+                "file": (
+                    uploaded_file.name,
+                    uploaded_file.getvalue(),
+                    uploaded_file.type,
+                )
+            },
+            timeout=300,
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        return True, data.get("message", "Document added successfully.")
+
+    except requests.exceptions.Timeout:
+        return False, "Processing timed out."
+
+    except requests.exceptions.ConnectionError:
+        return False, "Could not connect to the backend."
+
+    except requests.exceptions.HTTPError:
+        try:
+            detail = response.json().get("detail", "Upload failed.")
+        except Exception:
+            detail = "Upload failed."
+        return False, detail
+
+    except Exception as error:
+        return False, f"Upload failed: {error}"
+
+
 # SIDEBAR: DOCUMENT MANAGEMENT
 
 with st.sidebar:
     st.header("Document Management")
 
-    uploaded_file = st.file_uploader(
-        "Upload a document",
+    uploaded_files = st.file_uploader(
+        "Upload documents",
         type=["pdf", "txt", "docx"],
+        accept_multiple_files=True,
     )
 
-    if uploaded_file is not None:
+    if uploaded_files:
+        st.caption(f"{len(uploaded_files)} file(s) selected")
+
         if st.button("Add to Knowledge Base"):
-            try:
-                with st.spinner("Processing document..."):
-                    response = requests.post(
-                        f"{API_URL}/upload",
-                        files={
-                            "file": (
-                                uploaded_file.name,
-                                uploaded_file.getvalue(),
-                                uploaded_file.type,
-                            )
-                        },
-                        timeout=300,
-                    )
 
-                response.raise_for_status()
+            results = []
+            progress = st.progress(0, text="Starting upload...")
 
-                data = response.json()
+            for index, uploaded_file in enumerate(uploaded_files, start=1):
 
-                st.success(
-                    data.get("message", "Document added successfully.")
+                progress.progress(
+                    (index - 1) / len(uploaded_files),
+                    text=f"Uploading {uploaded_file.name} "
+                         f"({index}/{len(uploaded_files)})...",
                 )
 
-            except requests.exceptions.Timeout:
-                st.error("Document processing timed out.")
+                success, message = upload_single_file(uploaded_file)
+                results.append((uploaded_file.name, success, message))
 
-            except requests.exceptions.ConnectionError:
-                st.error("Could not connect to the backend.")
+            progress.progress(1.0, text="Done.")
+            progress.empty()
 
-            except requests.exceptions.HTTPError:
-                try:
-                    detail = response.json().get("detail", "Upload failed.")
-                except Exception:
-                    detail = "Upload failed."
+            # SUMMARY
 
-                st.error(detail)
+            succeeded = [r for r in results if r[1]]
+            failed = [r for r in results if not r[1]]
 
-            except Exception as error:
-                st.error(f"Upload failed: {error}")
+            if succeeded:
+                st.success(
+                    f"{len(succeeded)}/{len(results)} file(s) added successfully."
+                )
+                with st.expander("View details"):
+                    for filename, ok, message in results:
+                        icon = "✅" if ok else "❌"
+                        st.markdown(f"{icon} **{filename}** — {message}")
+
+            if failed:
+                st.error(
+                    f"{len(failed)} file(s) failed to upload. See details above."
+                )
 
 
 # TITLE
