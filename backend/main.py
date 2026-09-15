@@ -3,6 +3,7 @@ from pathlib import Path
 from datetime import datetime
 import uuid
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -69,6 +70,58 @@ UPLOAD_RATE_LIMIT = os.getenv("UPLOAD_RATE_LIMIT", "30/minute")
 llm = None
 vector_store = None
 
+# STARTUP
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global vector_store
+    global llm
+
+    logger.info("=" * 60)
+    logger.info("STARTING RAG API")
+    logger.info(f"Backend URL: {BACKEND_URL}")
+    logger.info("=" * 60)
+
+    try:
+        logger.info("Loading VectorDB...")
+        vector_store = load_vectorstore()
+        chunk_count = vector_store.count()
+
+        logger.info("VectorDB loaded successfully.")
+        logger.info(f"Chunks available: {chunk_count}")
+
+        if chunk_count == 0:
+            logger.warning(
+                "Vector store is EMPTY (0 chunks). The chatbot will not "
+                "be able to answer questions until documents are ingested. "
+                "Run 'python build_vectorstore.py' or use /upload."
+            )
+
+    except Exception as error:
+        # Do not crash startup if the vector store fails.
+        # /status will report the API as not ready.
+        logger.error(f"Failed to load vector store: {error}")
+        vector_store = None
+
+    try:
+        logger.info("Loading LLM...")
+        llm = get_llm()
+        logger.info("LLM loaded successfully.")
+
+    except Exception as error:
+        # Do not crash startup if the LLM/provider fails.
+        # /status will report the API as not ready.
+        logger.error(f"Failed to load LLM: {error}")
+        llm = None
+
+    logger.info("=" * 60)
+    logger.info("RAG API READY (see /status for health)")
+    logger.info("=" * 60)
+
+    yield
+
+    # Shutdown
+    logger.info("Shutting down RAG API...")
 
 # FASTAPI APPLICATION
 
@@ -76,6 +129,7 @@ app = FastAPI(
     title="RAG Chatbot API",
     description="FastAPI backend for the local conversational RAG chatbot",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # RATE LIMITING
@@ -130,55 +184,6 @@ class ChatResponse(BaseModel):
     answer: str
     sources: list[SourceInfo]
 
-
-# STARTUP
-
-@app.on_event("startup")
-def startup_event():
-
-    global vector_store
-    global llm
-
-    logger.info("=" * 60)
-    logger.info("STARTING RAG API")
-    logger.info(f"Backend URL: {BACKEND_URL}")
-    logger.info("=" * 60)
-
-    try:
-        logger.info("Loading VectorDB...")
-        vector_store = load_vectorstore()
-        chunk_count = vector_store.count()
-        logger.info("VectorDB loaded successfully.")
-        logger.info(f"Chunks available: {chunk_count}")
-
-        if chunk_count == 0:
-            logger.warning(
-                "Vector store is EMPTY (0 chunks). The chatbot will not "
-                "be able to answer questions until documents are ingested. "
-                "Run 'python build_vectorstore.py' or use /upload."
-            )
-
-    except Exception as error:
-        # Never crash startup entirely just because the store failed to
-        # load — the API should still come up and report /status as
-        # not-ready instead of refusing to start.
-        logger.error(f"Failed to load vector store: {error}")
-        vector_store = None
-
-    try:
-        logger.info("Loading LLM...")
-        llm = get_llm()
-        logger.info("LLM loaded successfully.")
-
-    except Exception as error:
-        # Same reasoning: don't let a bad/missing API key or an
-        # unreachable provider take the whole API down.
-        logger.error(f"Failed to load LLM: {error}")
-        llm = None
-
-    logger.info("=" * 60)
-    logger.info("RAG API READY (see /status for health)")
-    logger.info("=" * 60)
 
 
 # STATUS ENDPOINT

@@ -167,7 +167,7 @@ class FAISSVectorStore:
         vector database is being used.
         """
 
-        if self.index is None:
+        if self.index is None or self.index.ntotal == 0:
             return {
                 "documents": [[]],
                 "metadatas": [[]],

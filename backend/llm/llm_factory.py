@@ -94,7 +94,7 @@ def get_llm(provider_name=None):
                 temperature=0,
                 api_key=api_key,
                 max_tokens=800,
-                reasoning_effort="none",
+                reasoning_effort="low",
             )
 
         except Exception as error:
