@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-
+import os
 import requests
 import streamlit as st
 
@@ -8,13 +8,16 @@ import streamlit as st
 # CONFIGURATION
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CONFIG_FILE = PROJECT_ROOT / "config.json"
+# CONFIG_FILE = PROJECT_ROOT / "config.json"
 
-with open(CONFIG_FILE, "r", encoding="utf-8") as file:
-    config = json.load(file)
+# with open(CONFIG_FILE, "r", encoding="utf-8") as file:
+#     config = json.load(file)
 
-API_URL = config["backend"]["base_url"]
-
+# API_URL = config["backend"]["base_url"]
+API_URL = os.getenv(
+    "BACKEND_URL",
+    "http://localhost:8000"
+)
 
 # PAGE CONFIGURATION
 

@@ -1,0 +1,48 @@
+services:
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+
+    container_name: rag-backend
+
+    env_file:
+      - .env
+
+    environment:
+      BACKEND_HOST: 0.0.0.0
+      BACKEND_PORT: 8000
+      BACKEND_URL: http://backend:8000
+      CORS_ORIGINS: http://localhost:8501
+      VECTOR_DB: ${VECTOR_DB:-faiss}
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - ./faiss_db:/app/faiss_db
+      - ./chroma_db:/app/chroma_db
+      - ./data:/app/data
+      - ./debug:/app/debug
+
+    restart: unless-stopped
+
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+
+    container_name: rag-frontend
+
+    environment:
+      BACKEND_URL: http://backend:8000
+
+    ports:
+      - "8501:8501"
+
+    depends_on:
+      - backend
+
+    restart: unless-stopped

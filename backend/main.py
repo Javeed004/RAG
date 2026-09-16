@@ -557,6 +557,16 @@ async def upload_document(request: Request, file: UploadFile = File(...)):
     }
 
 
+# if __name__ == "__main__":
+#     import uvicorn
+#     uvicorn.run("main:app", host=BACKEND_HOST, port=BACKEND_PORT, reload=True)
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host=BACKEND_HOST, port=BACKEND_PORT, reload=True)
+
+    uvicorn.run(
+        "main:app",
+        host=BACKEND_HOST,
+        port=BACKEND_PORT,
+        reload=False,
+    )
