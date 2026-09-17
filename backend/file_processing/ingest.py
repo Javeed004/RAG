@@ -1,5 +1,5 @@
 from pathlib import Path
-
+from file_processing.tabular_loader import load_csv, load_excel
 from langchain_community.document_loaders import (
     PyPDFLoader,
     TextLoader,
@@ -29,6 +29,12 @@ def load_document(file_path):
 
     if extension == ".pdf":
         loader = PyPDFLoader(str(file_path))
+        
+    elif extension == ".csv":
+        return load_csv(file_path)    
+        
+    elif extension == ".xlsx":
+        return load_excel(file_path)
 
     elif extension == ".txt":
         loader = TextLoader(

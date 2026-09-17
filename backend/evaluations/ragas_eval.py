@@ -405,7 +405,23 @@ def main():
     parser.add_argument("--out", default="debug/ragas_report.md", help="Output Markdown report path")
     parser.add_argument("--history", default="debug/ragas_history.csv", help="Running CSV of average scores")
     parser.add_argument("--label", default="run", help="Label for this run, e.g. 'before' or 'after'")
+    parser.add_argument(
+        "--rerank",
+        dest="rerank",
+        action="store_true",
+        default=None,
+        help="Force reranking on for this run",
+    )
+    parser.add_argument(
+        "--no-rerank",
+        dest="rerank",
+        action="store_false",
+        help="Force reranking off for this run",
+    )
     args = parser.parse_args()
+
+    if args.rerank is not None:
+        os.environ["RERANK_ENABLED"] = "true" if args.rerank else "false"
 
     print("=" * 70)
     print(f"RAGAS evaluation run — label: {args.label}")

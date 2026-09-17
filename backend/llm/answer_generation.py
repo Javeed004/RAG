@@ -2,13 +2,16 @@ import os
 from pathlib import Path
 from llm.llm_factory import get_llm
 from llm.llm_factory import get_llm_config
+from llm.reranker import rerank
 from file_processing.embeddings import embed_texts
 from vector_db.vector_store_factory import get_vector_store
 
 
 # CONFIGURATION
 
-TOP_K = 3
+RERANK_ENABLED = os.getenv("RERANK_ENABLED", "true").lower() == "true"
+RETRIEVE_K = int(os.getenv("RETRIEVE_K", "10"))   # over-fetch before reranking
+TOP_K = 3    
 
 DEBUG_DIR = Path(__file__).resolve().parent.parent / "debug"
 DEBUG_FILE = DEBUG_DIR / "rag_debug.txt"
@@ -369,8 +372,13 @@ def answer(question, vector_store, history=None, llm=None):
     print("=" * 80)
 
     # STEP 2: RETRIEVE
-
+    
+    k = RETRIEVE_K if RERANK_ENABLED else TOP_K
     results = search(vector_store=vector_store, query=standalone_question, k=TOP_K)
+    
+    # STEP 2.5: RERANK
+    if RERANK_ENABLED:
+        results = rerank(standalone_question, results, top_n=TOP_K)
 
     # STEP 3: FORMAT CONTEXT
 

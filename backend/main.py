@@ -393,7 +393,7 @@ async def upload_document(request: Request, file: UploadFile = File(...)):
             detail="The knowledge base is currently unavailable. Please try again shortly.",
         )
 
-    allowed_extensions = {".pdf", ".txt", ".docx"}
+    allowed_extensions = {".pdf", ".txt", ".docx", ".csv", ".xlsx"}
 
     filename = Path(file.filename).name
     extension = Path(filename).suffix.lower()
@@ -568,5 +568,5 @@ if __name__ == "__main__":
         "main:app",
         host=BACKEND_HOST,
         port=BACKEND_PORT,
-        reload=False,
+        reload=True,
     )
