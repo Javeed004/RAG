@@ -19,13 +19,77 @@ API_URL = os.getenv(
     "http://localhost:8000"
 )
 
+SUPPORTED_TYPES = ["pdf", "txt", "docx", "csv", "xlsx"]
+SUPPORTED_LABEL = "PDF, TXT, DOCX, CSV, XLSX"
+
+
 # PAGE CONFIGURATION
 
 st.set_page_config(
     page_title="RAG Chatbot",
-    page_icon="📚",
+    page_icon=None,
     layout="centered",
 )
+
+
+# STYLING
+
+st.markdown(
+    """
+    <style>
+        .block-container {
+            padding-top: 2.5rem;
+            max-width: 780px;
+        }
+        [data-testid="stSidebar"] .block-container {
+            padding-top: 1.5rem;
+        }
+        .app-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.1rem;
+        }
+        .app-subtitle {
+            color: var(--text-color-secondary, #6b7280);
+            font-size: 0.95rem;
+            margin-bottom: 1.5rem;
+        }
+        .source-card {
+            border: 1px solid rgba(128, 128, 128, 0.25);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.6rem;
+        }
+        .source-card-header {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 0.25rem;
+        }
+        .source-meta {
+            font-size: 0.8rem;
+            color: var(--text-color-secondary, #6b7280);
+            margin-bottom: 0.35rem;
+        }
+        .upload-status-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.15rem 0;
+        }
+        .status-ok {
+            color: #15803d;
+            font-weight: 600;
+        }
+        .status-fail {
+            color: #b91c1c;
+            font-weight: 600;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
 def display_sources(sources):
     """
     Display retrieved RAG chunks with metadata
@@ -36,7 +100,7 @@ def display_sources(sources):
         st.caption("No sources were returned.")
         return
 
-    with st.expander("🔍 View sources"):
+    with st.expander(f"View sources ({len(sources)})"):
 
         for index, source in enumerate(
             sources,
@@ -66,32 +130,22 @@ def display_sources(sources):
                 "",
             )
 
-            st.markdown(
-                f"### 📄 Source {index}"
-            )
-
-            st.caption(
-                f"**Document:** {source_name}"
-            )
-
-            st.caption(
-                f"**Page:** {page}"
-            )
+            meta_parts = [f"Document: {source_name}", f"Page: {page}"]
 
             if similarity is not None:
-
-                st.caption(
-                    f"**Similarity:** {similarity:.4f}"
-                )
+                meta_parts.append(f"Similarity: {similarity:.4f}")
 
             if distance is not None:
-
-                st.caption(
-                    f"**Distance:** {distance:.4f}"
-                )
+                meta_parts.append(f"Distance: {distance:.4f}")
 
             st.markdown(
-                "**Retrieved chunk:**"
+                f"""
+                <div class="source-card">
+                    <div class="source-card-header">Source {index}</div>
+                    <div class="source-meta">{" &nbsp;|&nbsp; ".join(meta_parts)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
 
             st.code(
@@ -148,17 +202,19 @@ def upload_single_file(uploaded_file):
 
 with st.sidebar:
     st.header("Document Management")
+    st.caption(f"Supported formats: {SUPPORTED_LABEL}")
 
     uploaded_files = st.file_uploader(
         "Upload documents",
-        type=["pdf", "txt", "docx", "csv", "xlsx"],
+        type=SUPPORTED_TYPES,
         accept_multiple_files=True,
+        help=f"Accepted file types: {SUPPORTED_LABEL}",
     )
 
     if uploaded_files:
         st.caption(f"{len(uploaded_files)} file(s) selected")
 
-        if st.button("Add to Knowledge Base"):
+        if st.button("Add to Knowledge Base", use_container_width=True):
 
             results = []
             progress = st.progress(0, text="Starting upload...")
@@ -186,21 +242,41 @@ with st.sidebar:
                 st.success(
                     f"{len(succeeded)}/{len(results)} file(s) added successfully."
                 )
-                with st.expander("View details"):
-                    for filename, ok, message in results:
-                        icon = "✅" if ok else "❌"
-                        st.markdown(f"{icon} **{filename}** — {message}")
 
             if failed:
                 st.error(
-                    f"{len(failed)} file(s) failed to upload. See details above."
+                    f"{len(failed)} file(s) failed to upload."
                 )
+
+            with st.expander("View details", expanded=bool(failed)):
+                for filename, ok, message in results:
+                    status_class = "status-ok" if ok else "status-fail"
+                    status_text = "Success" if ok else "Failed"
+                    st.markdown(
+                        f"""
+                        <div class="upload-status-row">
+                            <span class="{status_class}">{status_text}</span>
+                            <span><strong>{filename}</strong> — {message}</span>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+    st.divider()
+
+    if st.session_state.get("messages"):
+        if st.button("Clear conversation", use_container_width=True):
+            st.session_state.messages = []
+            st.rerun()
 
 
 # TITLE
 
-st.title("📚 RAG Chatbot")
-st.caption("Ask questions about your uploaded documents.")
+st.markdown('<div class="app-title">RAG Chatbot</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="app-subtitle">Ask questions about your uploaded documents.</div>',
+    unsafe_allow_html=True,
+)
 
 
 # SESSION STATE
@@ -210,6 +286,11 @@ if "messages" not in st.session_state:
 
 
 # DISPLAY CHAT HISTORY
+
+if not st.session_state.messages:
+    st.info(
+        "Upload documents from the sidebar, then ask a question to get started."
+    )
 
 for message in st.session_state.messages:
 
